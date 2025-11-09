@@ -1,0 +1,386 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECS Fargate + API Gateway for Animal Shelter"
+
+Parameters:
+  ImageName:
+    Type: String
+    Description: ECR Image Name
+    Default: animal-shelter:latest
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for deployment
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: At least 2 subnets in different AZs
+
+  DBHost:
+    Type: String
+    Description: PostgreSQL database host
+
+  DBName:
+    Type: String
+    Default: animalsdb
+    Description: Database name
+
+  DBUser:
+    Type: String
+    Default: postgres
+    Description: Database username
+
+  DBPass:
+    Type: String
+    NoEcho: true
+    Description: Database password
+
+Resources:
+  # ============================================================================
+  # NETWORKING
+  # ============================================================================
+  ECSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ECS Fargate tasks
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
+  # ============================================================================
+  # NETWORK LOAD BALANCER
+  # ============================================================================
+  NLB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: animal-shelter-nlb
+      Type: network
+      Scheme: internal
+      Subnets: !Ref SubnetIds
+
+  TargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: animal-shelter-tg
+      Port: 8080
+      Protocol: TCP
+      VpcId: !Ref VpcId
+      TargetType: ip
+      HealthCheckProtocol: HTTP
+      HealthCheckPath: /health
+
+  Listener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 8080
+      Protocol: TCP
+
+  # ============================================================================
+  # ECS FARGATE
+  # ============================================================================
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: animal-shelter-cluster
+
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: animal-shelter-task
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: 256
+      Memory: 512
+      ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      ContainerDefinitions:
+        - Name: animal-shelter-container
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${ImageName}"
+          PortMappings:
+            - ContainerPort: 8080
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: /ecs/animal-shelter
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: animal-shelter
+              awslogs-create-group: "true"
+          Environment:
+            - Name: DB_HOST
+              Value: !Ref DBHost
+            - Name: DB_NAME
+              Value: !Ref DBName
+            - Name: DB_USER
+              Value: !Ref DBUser
+            - Name: DB_PASS
+              Value: !Ref DBPass
+
+  ECSService:
+    Type: AWS::ECS::Service
+    DependsOn: Listener
+    Properties:
+      Cluster: !Ref ECSCluster
+      ServiceName: animal-shelter-service
+      TaskDefinition: !Ref TaskDefinition
+      DesiredCount: 1
+      LaunchType: FARGATE
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          Subnets: !Ref SubnetIds
+          SecurityGroups:
+            - !Ref ECSSecurityGroup
+      LoadBalancers:
+        - ContainerName: animal-shelter-container
+          ContainerPort: 8080
+          TargetGroupArn: !Ref TargetGroup
+
+  # ============================================================================
+  # API GATEWAY
+  # ============================================================================
+  VPCLink:
+    Type: AWS::ApiGateway::VpcLink
+    Properties:
+      Name: animal-shelter-vpc-link
+      TargetArns:
+        - !Ref NLB
+
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: animal-shelter-api
+      Description: API for animal shelter management
+
+  animalsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: animals
+
+  animalResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !Ref animalsResource
+      PathPart: "{id}"
+
+  # POST /animals
+  PostanimalsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "http://${NLB.DNSName}:8080/animals"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  # GET /animals
+  GetanimalsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NLB.DNSName}:8080/animals"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+
+  # GET /animals/{id}
+  GetanimalMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: GET
+        Uri: !Sub "http://${NLB.DNSName}:8080/animals/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  # PUT /animals/{id}
+  PutanimalMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: PUT
+        Uri: !Sub "http://${NLB.DNSName}:8080/animals/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  # DELETE /animals/{id}
+  DeleteanimalMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      RequestParameters:
+        method.request.path.id: true
+      Integration:
+        Type: HTTP_PROXY
+        IntegrationHttpMethod: DELETE
+        Uri: !Sub "http://${NLB.DNSName}:8080/animals/{id}"
+        ConnectionType: VPC_LINK
+        ConnectionId: !Ref VPCLink
+        RequestParameters:
+          integration.request.path.id: method.request.path.id
+
+  # OPTIONS /animals (CORS)
+  OptionsanimalsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # OPTIONS /animals/{id} (CORS)
+  OptionsanimalMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref animalResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  # API Deployment
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - PostanimalsMethod
+      - GetanimalsMethod
+      - GetanimalMethod
+      - PutanimalMethod
+      - DeleteanimalMethod
+      - OptionsanimalsMethod
+      - OptionsanimalMethod
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref APIDeployment
+      StageName: prod
+
+  # API Key
+  APIKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: animal-shelter-api-key
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIStage
+    Properties:
+      UsagePlanName: animal-shelter-usage-plan
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: !Ref APIStage
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref APIKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+# ============================================================================
+# OUTPUTS
+# ============================================================================
+Outputs:
+  APIEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
+
+  APIKeyId:
+    Description: API Key ID (use AWS Console to get the actual key value)
+    Value: !Ref APIKey
+
+  ECSClusterName:
+    Description: ECS Cluster name
+    Value: !Ref ECSCluster
+
+  ECSServiceName:
+    Description: ECS Service name
+    Value: !GetAtt ECSService.Name

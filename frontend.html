@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animal Shelter Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            min-height: 100vh;
+        }
+
+        .setup-screen {
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .setup-box {
+            background: #fff;
+            padding: 50px;
+            border-radius: 20px;
+            width: 450px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        .setup-box h2 {
+            font-size: 26px;
+            margin-bottom: 25px;
+            color: #667eea;
+            text-align: center;
+        }
+
+        .setup-box input {
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.3s;
+        }
+
+        .setup-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .setup-box button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .setup-box button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(180deg, #2d3748 0%, #1a202c 100%);
+            padding: 30px 0;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 0 30px 30px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .sidebar-header h1 {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .sidebar-header p {
+            color: rgba(255,255,255,0.6);
+            font-size: 13px;
+        }
+
+        .sidebar-menu {
+            padding: 30px 0;
+        }
+
+        .menu-item {
+            padding: 15px 30px;
+            color: rgba(255,255,255,0.8);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 15px;
+        }
+
+        .menu-item:hover,
+        .menu-item.active {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-left: 3px solid #667eea;
+        }
+
+        .menu-icon {
+            font-size: 18px;
+            width: 24px;
+        }
+
+        .sidebar-footer {
+            position: absolute;
+            bottom: 30px;
+            left: 0;
+            right: 0;
+            padding: 0 30px;
+        }
+
+        .config-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+
+        .config-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Main Content Area */
+        .main-content {
+            margin-left: 280px;
+            padding: 30px 40px;
+        }
+
+        .content-header {
+            background: white;
+            padding: 25px 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-left h2 {
+            font-size: 28px;
+            color: #2d3748;
+            margin-bottom: 5px;
+        }
+
+        .header-left p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 1px solid #e2e8f0;
+        }
+
+        .message-box {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .message-box.error {
+            background: #fed7d7;
+            color: #c53030;
+            display: block;
+            border-left: 4px solid #c53030;
+        }
+
+        .loader {
+            text-align: center;
+            color: #667eea;
+            font-size: 18px;
+            padding: 40px;
+            display: none;
+        }
+
+        /* Status Grid */
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            min-height: 400px;
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f7fafc;
+        }
+
+        .status-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .status-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+
+        .status-available .status-icon {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-adopted .status-icon {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+
+        .status-medical .status-icon {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status-reserved .status-icon {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+
+        .status-title h3 {
+            font-size: 18px;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .status-count {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .animals-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .animal-card {
+            background: #f7fafc;
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .animal-card:hover {
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-color: #cbd5e0;
+        }
+
+        .animal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            margin-bottom: 12px;
+        }
+
+        .animal-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .animal-species {
+            font-size: 14px;
+            color: #718096;
+            margin-top: 4px;
+        }
+
+        .size-badge {
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .size-small { background: #bee3f8; color: #2c5282; }
+        .size-medium { background: #feebc8; color: #7c2d12; }
+        .size-large { background: #fed7d7; color: #742a2a; }
+
+        .animal-traits {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .trait-tag {
+            background: #edf2f7;
+            color: #4a5568;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .card-actions button {
+            flex: 1;
+            padding: 8px;
+            font-size: 13px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+
+        .edit-btn {
+            background: #667eea;
+            color: white;
+        }
+
+        .edit-btn:hover {
+            background: #5568d3;
+        }
+
+        .delete-btn {
+            background: #fc8181;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background: #f56565;
+        }
+
+        /* Popup */
+        .popup {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .popup.show {
+            display: flex;
+        }
+
+        .popup-box {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            width: 550px;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+
+        .popup-box h2 {
+            margin-bottom: 30px;
+            color: #2d3748;
+            font-size: 24px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+        }
+
+        .input-group input,
+        .input-group textarea,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group textarea:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        .button-row {
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 1200px) {
+            .status-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+
+            .main-content {
+                margin-left: 0;
+            }
+
+            .content-header {
+                flex-direction: column;
+                gap: 20px;
+                align-items: flex-start;
+            }
+
+            .header-actions {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="setupScreen" class="setup-screen">
+        <div class="setup-box">
+            <h2>🐾 Configuración API</h2>
+            <input type="text" id="apiEndpoint" placeholder="URL del API">
+            <input type="password" id="apiSecret" placeholder="API Key">
+            <button onclick="connectAPI()">Conectar</button>
+        </div>
+    </div>
+
+    <div id="mainApp" style="display: none;">
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h1>🐾 Refugio</h1>
+                <p>Sistema de gestión</p>
+            </div>
+            
+            <div class="sidebar-menu">
+                <div class="menu-item active">
+                    <span class="menu-icon">📊</span>
+                    <span>Panel de Control</span>
+                </div>
+                <div class="menu-item" onclick="reloadAnimals()">
+                    <span class="menu-icon">↻</span>
+                    <span>Actualizar Datos</span>
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <button class="config-btn" onclick="showSetup()">⚙️ Configuración</button>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="content-header">
+                <div class="header-left">
+                    <h2>Gestión de Animales</h2>
+                    <p id="animalSummary">Cargando información...</p>
+                </div>
+                <div class="header-actions">
+                    <button class="btn btn-primary" onclick="showAddForm()">
+                        <span>+</span>
+                        <span>Nuevo Animal</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="messageBox" class="message-box"></div>
+            <div id="loader" class="loader">Cargando animales...</div>
+
+            <div class="status-grid" id="mainGrid">
+                <div class="status-card status-available">
+                    <div class="status-header">
+                        <div class="status-title">
+                            <div class="status-icon">🟢</div>
+                            <h3>Disponibles</h3>
+                        </div>
+                        <span class="status-count" id="count-available">0</span>
+                    </div>
+                    <div class="animals-list" data-status="available"></div>
+                </div>
+
+                <div class="status-card status-adopted">
+                    <div class="status-header">
+                        <div class="status-title">
+                            <div class="status-icon">💙</div>
+                            <h3>Adoptados</h3>
+                        </div>
+                        <span class="status-count" id="count-adopted">0</span>
+                    </div>
+                    <div class="animals-list" data-status="adopted"></div>
+                </div>
+
+                <div class="status-card status-medical">
+                    <div class="status-header">
+                        <div class="status-title">
+                            <div class="status-icon">🏥</div>
+                            <h3>Atención Médica</h3>
+                        </div>
+                        <span class="status-count" id="count-medical">0</span>
+                    </div>
+                    <div class="animals-list" data-status="medical"></div>
+                </div>
+
+                <div class="status-card status-reserved">
+                    <div class="status-header">
+                        <div class="status-title">
+                            <div class="status-icon">📋</div>
+                            <h3>Reservados</h3>
+                        </div>
+                        <span class="status-count" id="count-reserved">0</span>
+                    </div>
+                    <div class="animals-list" data-status="reserved"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="animalPopup" class="popup">
+        <div class="popup-box">
+            <h2 id="popupTitle">Nuevo Animal</h2>
+            <form id="animalForm">
+                <div class="input-group">
+                    <label>Nombre *</label>
+                    <input type="text" id="animalName" required>
+                </div>
+
+                <div class="input-group">
+                    <label>Especie *</label>
+                    <input type="text" id="animalSpecies" required placeholder="Perro, Gato, etc.">
+                </div>
+
+                <div class="input-group">
+                    <label>Estado</label>
+                    <select id="animalStatus">
+                        <option value="available">Disponible</option>
+                        <option value="adopted">Adoptado</option>
+                        <option value="medical">Atención Médica</option>
+                        <option value="reserved">Reservado</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Tamaño</label>
+                    <select id="animalSize">
+                        <option value="small">Pequeño</option>
+                        <option value="medium">Mediano</option>
+                        <option value="large">Grande</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>Notas</label>
+                    <textarea id="animalNotes"></textarea>
+                </div>
+
+                <div class="input-group">
+                    <label>Características (separadas por coma)</label>
+                    <input type="text" id="animalTraits" placeholder="amigable, vacunado, entrenado">
+                </div>
+
+                <div class="button-row">
+                    <button type="button" class="btn btn-secondary" onclick="hidePopup()">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let apiUrl = '';
+        let apiKey = '';
+        let editingId = null;
+        let animals = [];
+
+        window.onload = () => {
+            const url = localStorage.getItem('api_url');
+            const key = localStorage.getItem('api_key');
+            
+            if (url && key) {
+                document.getElementById('apiEndpoint').value = url;
+                document.getElementById('apiSecret').value = key;
+                connectAPI();
+            }
+        };
+
+        function connectAPI() {
+            const url = document.getElementById('apiEndpoint').value.trim();
+            const key = document.getElementById('apiSecret').value.trim();
+
+            if (!url || !key) {
+                alert('Completa ambos campos');
+                return;
+            }
+
+            apiUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+            apiKey = key;
+
+            localStorage.setItem('api_url', apiUrl);
+            localStorage.setItem('api_key', apiKey);
+
+            document.getElementById('setupScreen').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+
+            loadAllAnimals();
+        }
+
+        function showSetup() {
+            if (confirm('¿Cambiar configuración?')) {
+                document.getElementById('setupScreen').style.display = 'flex';
+                document.getElementById('mainApp').style.display = 'none';
+            }
+        }
+
+        async function apiCall(path, method = 'GET', data = null) {
+            const config = {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-api-key': apiKey
+                }
+            };
+
+            if (data) {
+                config.body = JSON.stringify(data);
+            }
+
+            const res = await fetch(`${apiUrl}${path}`, config);
+            
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({ error: 'Error' }));
+                throw new Error(err.error || `Error ${res.status}`);
+            }
+
+            if (method === 'DELETE') return null;
+            return await res.json();
+        }
+
+        async function loadAllAnimals() {
+            try {
+                toggleLoader(true);
+                clearMessage();
+                animals = await apiCall('/animals');
+                displayAnimals();
+                updateSummary();
+            } catch (err) {
+                displayMessage(`Error: ${err.message}`, true);
+            } finally {
+                toggleLoader(false);
+            }
+        }
+
+        function updateSummary() {
+            const total = animals.length;
+            document.getElementById('animalSummary').textContent = 
+                `Total de animales: ${total}`;
+        }
+
+        function displayAnimals() {
+            const statuses = ['available', 'adopted', 'medical', 'reserved'];
+            
+            statuses.forEach(status => {
+                const list = document.querySelector(`.animals-list[data-status="${status}"]`);
+                list.innerHTML = '';
+                
+                const filtered = animals.filter(a => a.status === status);
+
+                filtered.forEach(animal => {
+                    list.appendChild(buildCard(animal));
+                });
+
+                document.getElementById(`count-${status}`).textContent = filtered.length;
+            });
+        }
+
+        function buildCard(animal) {
+            const card = document.createElement('div');
+            card.className = 'animal-card';
+
+            const traits = animal.traits && animal.traits.length > 0
+                ? `<div class="animal-traits">${animal.traits.map(t => `<span class="trait-tag">${t}</span>`).join('')}</div>`
+                : '';
+
+            card.innerHTML = `
+                <div class="animal-header">
+                    <div>
+                        <div class="animal-name">${animal.name}</div>
+                        <div class="animal-species">${animal.species}</div>
+                    </div>
+                    <span class="size-badge size-${animal.size}">${animal.size}</span>
+                </div>
+                ${traits}
+                <div class="card-actions">
+                    <button class="edit-btn" onclick="editAnimal('${animal.animal_id}')">✏️ Editar</button>
+                    <button class="delete-btn" onclick="removeAnimal('${animal.animal_id}')">🗑️ Eliminar</button>
+                </div>
+            `;
+
+            return card;
+        }
+
+        function showAddForm() {
+            editingId = null;
+            document.getElementById('popupTitle').textContent = 'Nuevo Animal';
+            document.getElementById('animalForm').reset();
+            document.getElementById('animalPopup').classList.add('show');
+        }
+
+        async function editAnimal(id) {
+            editingId = id;
+            const animal = animals.find(a => a.animal_id === id);
+
+            document.getElementById('popupTitle').textContent = 'Editar Animal';
+            document.getElementById('animalName').value = animal.name;
+            document.getElementById('animalSpecies').value = animal.species;
+            document.getElementById('animalStatus').value = animal.status;
+            document.getElementById('animalSize').value = animal.size;
+            document.getElementById('animalNotes').value = animal.notes || '';
+            document.getElementById('animalTraits').value = animal.traits ? animal.traits.join(', ') : '';
+
+            document.getElementById('animalPopup').classList.add('show');
+        }
+
+        function hidePopup() {
+            document.getElementById('animalPopup').classList.remove('show');
+            editingId = null;
+        }
+
+        document.getElementById('animalForm').onsubmit = async (e) => {
+            e.preventDefault();
+
+            const payload = {
+                name: document.getElementById('animalName').value,
+                species: document.getElementById('animalSpecies').value,
+                status: document.getElementById('animalStatus').value,
+                size: document.getElementById('animalSize').value,
+                notes: document.getElementById('animalNotes').value || null,
+                traits: document.getElementById('animalTraits').value
+                    .split(',')
+                    .map(t => t.trim())
+                    .filter(t => t)
+            };
+
+            try {
+                if (editingId) {
+                    const updated = await apiCall(`/animals/${editingId}`, 'PUT', payload);
+                    const idx = animals.findIndex(a => a.animal_id === editingId);
+                    animals[idx] = updated;
+                } else {
+                    const created = await apiCall('/animals', 'POST', payload);
+                    animals.push(created);
+                }
+
+                displayAnimals();
+                updateSummary();
+                hidePopup();
+            } catch (err) {
+                displayMessage(`Error: ${err.message}`, true);
+            }
+        };
+
+        async function removeAnimal(id) {
+            if (!confirm('¿Eliminar este animal?')) return;
+
+            try {
+                await apiCall(`/animals/${id}`, 'DELETE');
+                animals = animals.filter(a => a.animal_id !== id);
+                displayAnimals();
+                updateSummary();
+            } catch (err) {
+                displayMessage(`Error: ${err.message}`, true);
+            }
+        }
+
+        function reloadAnimals() {
+            loadAllAnimals();
+        }
+
+        function toggleLoader(show) {
+            document.getElementById('loader').style.display = show ? 'block' : 'none';
+        }
+
+        function displayMessage(msg, isError) {
+            const box = document.getElementById('messageBox');
+            box.textContent = msg;
+            box.className = 'message-box' + (isError ? ' error' : '');
+        }
+
+        function clearMessage() {
+            document.getElementById('messageBox').className = 'message-box';
+        }
+
+        document.getElementById('animalPopup').onclick = (e) => {
+            if (e.target.id === 'animalPopup') hidePopup();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "RDS PostgreSQL for Animal Shelter"
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC for database
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets for DB (minimum 2 in different AZs)
+
+  DBName:
+    Type: String
+    Default: animalsdb
+    Description: Database name
+
+  DBUser:
+    Type: String
+    Default: postgres
+    Description: Master username
+
+  DBPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    Description: Master user password
+
+Resources:
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: animal-shelter-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for animal shelter PostgreSQL database
+      SubnetIds: !Ref SubnetIds
+
+  PostgresDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: animal-shelter-postgres
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: true              # HAY QUE CAMBIAR ESOOO?
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+
+Outputs:
+  DBEndpoint:
+    Description: PostgreSQL endpoint address
+    Value: !GetAtt PostgresDBInstance.Endpoint.Address
+
+  DBPort:
+    Description: PostgreSQL port
+    Value: !GetAtt PostgresDBInstance.Endpoint.Port
+
+  DBName:
+    Description: Database name
+    Value: !Ref DBName
+
+  DBUser:
+    Description: Master username
+    Value: !Ref DBUser

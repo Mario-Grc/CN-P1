@@ -1,0 +1,429 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Animal Shelter - Lambdas + API Gateway"
+
+Parameters:
+  Region:
+    Type: String
+    Default: us-east-1
+  
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC donde se ejecutarán las Lambdas
+  
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Lista de Subnets privadas donde estarán las Lambdas
+  
+  DBHost:
+    Type: String
+    Description: Endpoint de la base de datos PostgreSQL
+  
+  DBNameParam:
+    Type: String
+    Description: Nombre de la base de datos
+    Default: animalsdb
+  
+  DBPasswordParam:
+    Type: String
+    Description: Contraseña de la base de datos
+    NoEcho: true
+
+Resources:
+  ###################################
+  # Security Group para Lambdas
+  ###################################
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Permite a las Lambdas conectarse a la base de datos RDS"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  ###################################
+  # Lambda Functions
+  ###################################
+  CreateAnimalLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: create-animal
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:create-animal"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBNameParam
+          DB_USER: postgres
+          DB_PASSWORD: !Ref DBPasswordParam
+      Architectures: [x86_64]
+
+  GetAnimalsLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-animals
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:get-animals"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBNameParam
+          DB_USER: postgres
+          DB_PASSWORD: !Ref DBPasswordParam
+      Architectures: [x86_64]
+
+  GetAnimalByIdLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: get-animal-by-id
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:get-animal-by-id"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBNameParam
+          DB_USER: postgres
+          DB_PASSWORD: !Ref DBPasswordParam
+      Architectures: [x86_64]
+
+  UpdateAnimalLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: update-animal
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:update-animal"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBNameParam
+          DB_USER: postgres
+          DB_PASSWORD: !Ref DBPasswordParam
+      Architectures: [x86_64]
+
+  DeleteAnimalLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: delete-animal
+      PackageType: Image
+      Code:
+        ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:delete-animal"
+      Role: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DB_HOST: !Ref DBHost
+          DB_NAME: !Ref DBNameParam
+          DB_USER: postgres
+          DB_PASSWORD: !Ref DBPasswordParam
+      Architectures: [x86_64]
+
+  ###################################
+  # Lambda Permissions para API Gateway
+  ###################################
+  GetAnimalsPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetAnimalsLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+
+  GetAnimalByIdPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref GetAnimalByIdLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+
+  CreateAnimalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref CreateAnimalLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+
+  UpdateAnimalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref UpdateAnimalLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+
+  DeleteAnimalPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref DeleteAnimalLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+
+  ###################################
+  # API GATEWAY
+  ###################################
+  RestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: animal-shelter-api
+      Description: API for Animal Shelter Lambdas
+      EndpointConfiguration:
+        Types: [REGIONAL]
+
+  AnimalsResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !GetAtt RestAPI.RootResourceId
+      PathPart: "animals"
+
+  AnimalIdResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref RestAPI
+      ParentId: !Ref AnimalsResource
+      PathPart: "{id}"
+
+  ###################################
+  # Métodos principales con CORS
+  ###################################
+  GetAllMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalsResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAnimalsLambda.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  GetByIdMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalIdResource
+      HttpMethod: GET
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${GetAnimalByIdLambda.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PostMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalsResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${CreateAnimalLambda.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  PutMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalIdResource
+      HttpMethod: PUT
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${UpdateAnimalLambda.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  DeleteMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalIdResource
+      HttpMethod: DELETE
+      AuthorizationType: NONE
+      ApiKeyRequired: true
+      Integration:
+        Type: AWS_PROXY
+        IntegrationHttpMethod: POST
+        Uri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${DeleteAnimalLambda.Arn}/invocations"
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ###################################
+  # Métodos OPTIONS (CORS)
+  ###################################
+  OptionsAnimalsMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalsResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  OptionsAnimalByIdMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref RestAPI
+      ResourceId: !Ref AnimalIdResource
+      HttpMethod: OPTIONS
+      AuthorizationType: NONE
+      ApiKeyRequired: false
+      Integration:
+        Type: MOCK
+        IntegrationResponses:
+          - StatusCode: 200
+            ResponseParameters:
+              method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
+              method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
+              method.response.header.Access-Control-Allow-Origin: "'*'"
+            ResponseTemplates:
+              application/json: ""
+        RequestTemplates:
+          application/json: '{"statusCode": 200}'
+      MethodResponses:
+        - StatusCode: 200
+          ResponseParameters:
+            method.response.header.Access-Control-Allow-Headers: true
+            method.response.header.Access-Control-Allow-Methods: true
+            method.response.header.Access-Control-Allow-Origin: true
+
+  ###################################
+  # API Deployment / Stage / Key / Usage Plan
+  ###################################
+  APIDeployment:
+    Type: AWS::ApiGateway::Deployment
+    DependsOn:
+      - GetAllMethod
+      - GetByIdMethod
+      - PostMethod
+      - PutMethod
+      - DeleteMethod
+      - OptionsAnimalsMethod
+      - OptionsAnimalByIdMethod
+    Properties:
+      RestApiId: !Ref RestAPI
+
+  APIStage:
+    Type: AWS::ApiGateway::Stage
+    Properties:
+      RestApiId: !Ref RestAPI
+      DeploymentId: !Ref APIDeployment
+      StageName: prod
+
+  APIKey:
+    Type: AWS::ApiGateway::ApiKey
+    DependsOn: APIStage
+    Properties:
+      Name: animal-shelter-api-key
+      Enabled: true
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    DependsOn: APIStage
+    Properties:
+      UsagePlanName: animal-shelter-usage-plan
+      ApiStages:
+        - ApiId: !Ref RestAPI
+          Stage: !Ref APIStage
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      KeyId: !Ref APIKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/animals"
+    Description: "Base URL of the Animal Shelter API"
+  
+  ApiKeyId:
+    Value: !Ref APIKey
+    Description: "API Key ID - Get the actual key value from AWS Console > API Gateway > API Keys"

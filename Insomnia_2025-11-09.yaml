@@ -1,0 +1,185 @@
+type: collection.insomnia.rest/5.0
+name: Shelter
+meta:
+  id: wrk_cef406e2503b4cb392173acc8a31c42a
+  created: 1761404483320
+  modified: 1762509239799
+  description: ""
+collection:
+  - url: "{{ _.base_url }}"
+    name: GET all animals
+    meta:
+      id: req_486313f5432f456090215183fa7cc0fc
+      created: 1761404483334
+      modified: 1762706438365
+      isPrivate: false
+      description: ""
+      sortKey: -1762510387676
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/11.6.2
+    authentication:
+      type: apikey
+      disabled: false
+      key: x-api-key
+      value: "{{ _.api_key }}"
+      addTo: header
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}"
+    name: Create animal
+    meta:
+      id: req_e43c93fbb1534c16bba7fe6f6e9db86b
+      created: 1762510023934
+      modified: 1762706440890
+      isPrivate: false
+      description: ""
+      sortKey: -1762510387626
+    method: POST
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "name": "Max",
+          "species": "Perro",
+          "status": "available",
+          "size": "large",
+          "notes": "Muy amigable con niños",
+          "traits": ["friendly", "trained", "vaccinated"]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/12.0.0
+    authentication:
+      type: apikey
+      disabled: false
+      key: x-api-key
+      value: "{{ _.api_key }}"
+      addTo: header
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}/a725d823-0e2c-44f1-9259-1738cc7ecfa5"
+    name: GET animal by ID
+    meta:
+      id: req_9375105deea14d03b5bc8239ca4c3419
+      created: 1762510127121
+      modified: 1762706442668
+      isPrivate: false
+      description: ""
+      sortKey: -1762510387601
+    method: GET
+    headers:
+      - name: User-Agent
+        value: insomnia/12.0.0
+    authentication:
+      type: apikey
+      disabled: false
+      key: x-api-key
+      value: "{{ _.api_key }}"
+      addTo: header
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}/31aa943b-2445-4fd0-a53b-af4a45434b19"
+    name: Update animal
+    meta:
+      id: req_d08a7384027444d09dc5ed6d17ada300
+      created: 1762510227583
+      modified: 1762706445140
+      isPrivate: false
+      description: ""
+      sortKey: -1762510387588.5
+    method: PUT
+    body:
+      mimeType: application/json
+      text: |-
+        {
+          "name": "Sanche",
+          "species": "Perro",
+          "status": "adopted",
+          "size": "small",
+          "notes": "Adoptado por familia García",
+          "traits": ["mediano", "viejo"]
+        }
+    headers:
+      - name: Content-Type
+        value: application/json
+      - name: User-Agent
+        value: insomnia/12.0.0
+    authentication:
+      type: apikey
+      disabled: false
+      key: x-api-key
+      value: "{{ _.api_key }}"
+      addTo: header
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+  - url: "{{ _.base_url }}/a725d823-0e2c-44f1-9259-1738cc7ecfa5"
+    name: Delete animal
+    meta:
+      id: req_040a1dcb42b94b0a96d61413286862d8
+      created: 1762510387576
+      modified: 1762705914825
+      isPrivate: false
+      description: ""
+      sortKey: -1762510387576
+    method: DELETE
+    headers:
+      - name: User-Agent
+        value: insomnia/12.0.0
+    authentication:
+      type: apikey
+      disabled: false
+      key: x-api-key
+      value: "{{ _.api_key }}"
+      addTo: header
+    settings:
+      renderRequestBody: true
+      encodeUrl: true
+      followRedirects: global
+      cookies:
+        send: true
+        store: true
+      rebuildPath: true
+cookieJar:
+  name: Default Jar
+  meta:
+    id: jar_0a041128a23fa562b1c73fcf43b44c50b1a183fb
+    created: 1761404483326
+    modified: 1761404483326
+environments:
+  name: Base Environment
+  meta:
+    id: env_0a041128a23fa562b1c73fcf43b44c50b1a183fb
+    created: 1761404483323
+    modified: 1762705869216
+    isPrivate: false
+  data:
+    base_url: https://tjrz52kq81.execute-api.us-east-1.amazonaws.com/prod/animals
+    api_key: oQs10fklMe6dyhxREVmti5Px3pylU30i7b2u6Rhf

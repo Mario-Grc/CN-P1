@@ -1,0 +1,11 @@
+{
+  "name": "animal-shelter-lambda",
+  "version": "1.0.0",
+  "description": "Lambda functions for animal shelter",
+  "type": "module",
+  "dependencies": {
+    "pg": "^8.11.3",
+    "zod": "^3.22.4",
+    "uuid": "^9.0.1"
+  }
+}

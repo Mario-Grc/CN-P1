@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "ECR Repository for Animal Shelter Lambdas"
+
+Resources:
+  AnimalShelterRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: animal-shelter-lambdas
+      ImageScanningConfiguration:
+        ScanOnPush: true
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {
+            "rules": [
+              {
+                "rulePriority": 1,
+                "description": "Keep only last 10 images",
+                "selection": {
+                  "tagStatus": "any",
+                  "countType": "imageCountMoreThan",
+                  "countNumber": 10
+                },
+                "action": { "type": "expire" }
+              }
+            ]
+          }
+
+Outputs:
+  RepositoryURI:
+    Description: URI of the Animal Shelter Lambdas repository
+    Value: !GetAtt AnimalShelterRepository.RepositoryUri
+    Export:
+      Name: AnimalShelterECRRepositoryUri
