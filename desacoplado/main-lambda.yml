@@ -63,7 +63,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref LambdaSecurityGroup
+          - !ImportValue DBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -85,7 +85,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref LambdaSecurityGroup
+          - !ImportValue DBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -107,7 +107,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref LambdaSecurityGroup
+          - !ImportValue DBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -129,7 +129,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref LambdaSecurityGroup
+          - !ImportValue DBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -151,7 +151,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !Ref LambdaSecurityGroup
+          - !ImportValue DBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost

@@ -1,4 +1,3 @@
-// lambda-helpers.js
 export const httpResponse = (statusCode, data) => {
   return {
     statusCode,

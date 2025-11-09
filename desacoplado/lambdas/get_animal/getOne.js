@@ -3,7 +3,6 @@ import { httpResponse, httpError } from './lambda-helpers.js';
 
 export const handler = async (event) => {
   try {
-    // El ID viene en los 'pathParameters'
     const { id } = event.pathParameters;
     
     const animal = await db.getAnimalById(id);

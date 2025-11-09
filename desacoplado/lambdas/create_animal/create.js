@@ -7,14 +7,14 @@ export const handler = async (event) => {
     // El body viene como un string, hay que parsearlo
     const body = JSON.parse(event.body);
     
-    // Validar los datos con tu esquema Zod
+    // Validar los datos con el esquema
     const animal = AnimalSchema.parse(body);
     
     const newAnimal = await db.createAnimal(animal);
     return httpResponse(201, newAnimal);
     
   } catch (err) {
-    // Manejo de errores de validación de Zod u otros
+    // Manejo de errores de validación de Zod
     return httpError(400, err.message || 'Invalid request data');
   }
 };

@@ -27,6 +27,12 @@ Parameters:
     Description: Master user password
 
 Resources:
+  DBAccessSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for accessing PostgreSQL
+      VpcId: !Ref VpcId
+
   DBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -36,7 +42,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          CidrIp: 0.0.0.0/0
+          SourceSecurityGroupId: !Ref DBAccessSG
 
   DBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
@@ -60,7 +66,7 @@ Resources:
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
       DBSubnetGroupName: !Ref DBSubnetGroup
-      PubliclyAccessible: true              # HAY QUE CAMBIAR ESOOO?
+      PubliclyAccessible: false
       BackupRetentionPeriod: 0
       DeletionProtection: false
 
@@ -80,3 +86,8 @@ Outputs:
   DBUser:
     Description: Master username
     Value: !Ref DBUser
+
+  DBAccessSGId:
+    Value: !Ref DBAccessSG
+    Export:
+      Name: DBAccessSGId
