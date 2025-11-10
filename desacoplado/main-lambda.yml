@@ -423,7 +423,7 @@ Resources:
 
 Outputs:
   ApiUrl:
-    Value: !Sub "https://${LambdaRestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/animals"
+    Value: !Sub "https://${LambdaRestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
     Description: "Base URL of the Animal Shelter API (Lambda Project)"
 
   ApiKeyId:
