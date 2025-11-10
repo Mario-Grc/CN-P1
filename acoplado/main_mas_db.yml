@@ -1,34 +1,34 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "ECS Fargate + API Gateway for Animal Shelter"
+Description: "Secure ECS Fargate + API Gateway + RDS PostgreSQL (Animal Shelter)"
 
 Parameters:
   ImageName:
     Type: String
     Description: ECR Image Name
     Default: animal-shelter:latest
-
+  
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC for deployment
-
+  
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
-    Description: At least 2 subnets in different AZs
-
-  DBHost:
+    Description: At least 2 PRIVATE subnets in different AZs
+  
+  RouteTableId:
     Type: String
-    Description: PostgreSQL database host
-
+    Description: Route Table ID associated with private subnets
+  
   DBName:
     Type: String
     Default: animalsdb
     Description: Database name
-
+  
   DBUser:
     Type: String
     Default: postgres
     Description: Database username
-
+  
   DBPass:
     Type: String
     NoEcho: true
@@ -36,8 +36,65 @@ Parameters:
 
 Resources:
   # ============================================================================
-  # NETWORKING
+  # DATABASE
   # ============================================================================
+  
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSSecurityGroup  # Solo ECS puede conectar
+      Tags:
+        - Key: Name
+          Value: animal-shelter-db-sg
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupName: animal-shelter-db-subnet-group
+      DBSubnetGroupDescription: Subnet group for animal shelter PostgreSQL database
+      SubnetIds: !Ref SubnetIds
+
+  PostgresDBInstance:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBInstanceIdentifier: animal-shelter-postgres
+      Engine: postgres
+      EngineVersion: "17.6"
+      DBInstanceClass: db.t3.micro
+      AllocatedStorage: 20
+      StorageType: gp2
+      DBName: !Ref DBName
+      MasterUsername: !Ref DBUser
+      MasterUserPassword: !Ref DBPass
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false  # Sin acceso público
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      MultiAZ: false
+
+  # ============================================================================
+  # SECURITY GROUPS
+  # ============================================================================
+  
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for internal NLB
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: 0.0.0.0/0
+
   ECSSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -47,11 +104,23 @@ Resources:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
-          CidrIp: 0.0.0.0/0
+          SourceSecurityGroupId: !Ref NLBSecurityGroup
+
+  VPCEndpointSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for VPC Endpoints
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref ECSSecurityGroup
 
   # ============================================================================
   # NETWORK LOAD BALANCER
   # ============================================================================
+  
   NLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
@@ -59,6 +128,8 @@ Resources:
       Type: network
       Scheme: internal
       Subnets: !Ref SubnetIds
+      SecurityGroups:
+        - !Ref NLBSecurityGroup
 
   TargetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -82,8 +153,9 @@ Resources:
       Protocol: TCP
 
   # ============================================================================
-  # ECS FARGATE
+  # ECS
   # ============================================================================
+  
   ECSCluster:
     Type: AWS::ECS::Cluster
     Properties:
@@ -91,13 +163,14 @@ Resources:
 
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
+    DependsOn: PostgresDBInstance  # Espera a que RDS esté lista
     Properties:
       Family: animal-shelter-task
       NetworkMode: awsvpc
       RequiresCompatibilities:
         - FARGATE
-      Cpu: 256
-      Memory: 512
+      Cpu: "256"
+      Memory: "512"
       ExecutionRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       TaskRoleArn: !Sub "arn:aws:iam::${AWS::AccountId}:role/LabRole"
       ContainerDefinitions:
@@ -115,7 +188,7 @@ Resources:
               awslogs-create-group: "true"
           Environment:
             - Name: DB_HOST
-              Value: !Ref DBHost
+              Value: !GetAtt PostgresDBInstance.Endpoint.Address  # Conexión a RDS
             - Name: DB_NAME
               Value: !Ref DBName
             - Name: DB_USER
@@ -134,7 +207,7 @@ Resources:
       LaunchType: FARGATE
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: ENABLED
+          AssignPublicIp: DISABLED
           Subnets: !Ref SubnetIds
           SecurityGroups:
             - !Ref ECSSecurityGroup
@@ -144,8 +217,55 @@ Resources:
           TargetGroupArn: !Ref TargetGroup
 
   # ============================================================================
+  # VPC ENDPOINTS
+  # ============================================================================
+  
+  ECREndpointAPI:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.api"
+      VpcId: !Ref VpcId
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+
+  ECREndpointDKR:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ecr.dkr"
+      VpcId: !Ref VpcId
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+
+  CWLogsEndpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.logs"
+      VpcId: !Ref VpcId
+      SubnetIds: !Ref SubnetIds
+      SecurityGroupIds:
+        - !Ref VPCEndpointSecurityGroup
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true
+
+  S3Endpoint:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.s3"
+      VpcId: !Ref VpcId
+      RouteTableIds:
+        - !Ref RouteTableId
+      VpcEndpointType: Gateway
+
+  # ============================================================================
   # API GATEWAY
   # ============================================================================
+  
   VPCLink:
     Type: AWS::ApiGateway::VpcLink
     Properties:
@@ -173,7 +293,6 @@ Resources:
       ParentId: !Ref animalsResource
       PathPart: "{id}"
 
-  # POST /animals
   PostanimalsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -189,7 +308,6 @@ Resources:
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
-  # GET /animals
   GetanimalsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -205,7 +323,6 @@ Resources:
         ConnectionType: VPC_LINK
         ConnectionId: !Ref VPCLink
 
-  # GET /animals/{id}
   GetanimalMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -225,7 +342,6 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # PUT /animals/{id}
   PutanimalMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -245,7 +361,6 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # DELETE /animals/{id}
   DeleteanimalMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -265,7 +380,6 @@ Resources:
         RequestParameters:
           integration.request.path.id: method.request.path.id
 
-  # OPTIONS /animals (CORS)
   OptionsanimalsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -277,7 +391,7 @@ Resources:
       Integration:
         Type: MOCK
         IntegrationResponses:
-          - StatusCode: 200
+          - StatusCode: "200"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
@@ -287,13 +401,12 @@ Resources:
         RequestTemplates:
           application/json: '{"statusCode": 200}'
       MethodResponses:
-        - StatusCode: 200
+        - StatusCode: "200"
           ResponseParameters:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # OPTIONS /animals/{id} (CORS)
   OptionsanimalMethod:
     Type: AWS::ApiGateway::Method
     Properties:
@@ -305,7 +418,7 @@ Resources:
       Integration:
         Type: MOCK
         IntegrationResponses:
-          - StatusCode: 200
+          - StatusCode: "200"
             ResponseParameters:
               method.response.header.Access-Control-Allow-Headers: "'Content-Type,x-api-key'"
               method.response.header.Access-Control-Allow-Methods: "'GET,POST,PUT,DELETE,OPTIONS'"
@@ -315,13 +428,12 @@ Resources:
         RequestTemplates:
           application/json: '{"statusCode": 200}'
       MethodResponses:
-        - StatusCode: 200
+        - StatusCode: "200"
           ResponseParameters:
             method.response.header.Access-Control-Allow-Headers: true
             method.response.header.Access-Control-Allow-Methods: true
             method.response.header.Access-Control-Allow-Origin: true
 
-  # API Deployment
   APIDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
@@ -342,7 +454,6 @@ Resources:
       DeploymentId: !Ref APIDeployment
       StageName: prod
 
-  # API Key
   APIKey:
     Type: AWS::ApiGateway::ApiKey
     Properties:
@@ -365,22 +476,23 @@ Resources:
       KeyType: API_KEY
       UsagePlanId: !Ref UsagePlan
 
-# ============================================================================
-# OUTPUTS
-# ============================================================================
 Outputs:
   APIEndpoint:
     Description: API Gateway endpoint URL
     Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod"
-
+  
   APIKeyId:
     Description: API Key ID (use AWS Console to get the actual key value)
     Value: !Ref APIKey
-
+  
+  DBEndpoint:
+    Description: RDS PostgreSQL endpoint (privado)
+    Value: !GetAtt PostgresDBInstance.Endpoint.Address
+  
   ECSClusterName:
     Description: ECS Cluster name
     Value: !Ref ECSCluster
-
+  
   ECSServiceName:
     Description: ECS Service name
     Value: !GetAtt ECSService.Name

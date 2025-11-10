@@ -1,29 +1,28 @@
 AWSTemplateFormatVersion: "2010-09-09"
-
-Description: "Animal Shelter - Lambdas + API Gateway"
+Description: "Animal Shelter - Lambdas + API Gateway (Lambda Project)"
 
 Parameters:
   Region:
     Type: String
     Default: us-east-1
-  
+
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC donde se ejecutarán las Lambdas
-  
+
   SubnetIds:
     Type: List<AWS::EC2::Subnet::Id>
     Description: Lista de Subnets privadas donde estarán las Lambdas
-  
+
   DBHost:
     Type: String
     Description: Endpoint de la base de datos PostgreSQL
-  
+
   DBNameParam:
     Type: String
     Description: Nombre de la base de datos
     Default: animalsdb
-  
+
   DBPasswordParam:
     Type: String
     Description: Contraseña de la base de datos
@@ -36,7 +35,7 @@ Resources:
   LambdaSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: "Permite a las Lambdas conectarse a la base de datos RDS"
+      GroupDescription: "Permite a las Lambdas conectarse a la base de datos RDS (Lambda Project)"
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -46,6 +45,9 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: lambda-project-sg
 
   ###################################
   # Lambda Functions
@@ -53,7 +55,7 @@ Resources:
   CreateAnimalLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: create-animal
+      FunctionName: create-animal-lambda
       PackageType: Image
       Code:
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:create-animal"
@@ -63,7 +65,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !ImportValue DBAccessSGId
+          - !ImportValue LambdaDBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -75,7 +77,7 @@ Resources:
   GetAnimalsLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: get-animals
+      FunctionName: get-animals-lambda
       PackageType: Image
       Code:
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:get-animals"
@@ -85,7 +87,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !ImportValue DBAccessSGId
+          - !ImportValue LambdaDBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -97,7 +99,7 @@ Resources:
   GetAnimalByIdLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: get-animal-by-id
+      FunctionName: get-animal-by-id-lambda
       PackageType: Image
       Code:
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:get-animal-by-id"
@@ -107,7 +109,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !ImportValue DBAccessSGId
+          - !ImportValue LambdaDBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -119,7 +121,7 @@ Resources:
   UpdateAnimalLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: update-animal
+      FunctionName: update-animal-lambda
       PackageType: Image
       Code:
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:update-animal"
@@ -129,7 +131,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !ImportValue DBAccessSGId
+          - !ImportValue LambdaDBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -141,7 +143,7 @@ Resources:
   DeleteAnimalLambda:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: delete-animal
+      FunctionName: delete-animal-lambda
       PackageType: Image
       Code:
         ImageUri: !Sub "${AWS::AccountId}.dkr.ecr.${Region}.amazonaws.com/animal-shelter-lambdas:delete-animal"
@@ -151,7 +153,7 @@ Resources:
       VpcConfig:
         SubnetIds: !Ref SubnetIds
         SecurityGroupIds:
-          - !ImportValue DBAccessSGId
+          - !ImportValue LambdaDBAccessSGId
       Environment:
         Variables:
           DB_HOST: !Ref DBHost
@@ -169,7 +171,7 @@ Resources:
       FunctionName: !Ref GetAnimalsLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LambdaRestAPI}/*/*"
 
   GetAnimalByIdPermission:
     Type: AWS::Lambda::Permission
@@ -177,7 +179,7 @@ Resources:
       FunctionName: !Ref GetAnimalByIdLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LambdaRestAPI}/*/*"
 
   CreateAnimalPermission:
     Type: AWS::Lambda::Permission
@@ -185,7 +187,7 @@ Resources:
       FunctionName: !Ref CreateAnimalLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LambdaRestAPI}/*/*"
 
   UpdateAnimalPermission:
     Type: AWS::Lambda::Permission
@@ -193,7 +195,7 @@ Resources:
       FunctionName: !Ref UpdateAnimalLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LambdaRestAPI}/*/*"
 
   DeleteAnimalPermission:
     Type: AWS::Lambda::Permission
@@ -201,30 +203,30 @@ Resources:
       FunctionName: !Ref DeleteAnimalLambda
       Action: lambda:InvokeFunction
       Principal: apigateway.amazonaws.com
-      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${RestAPI}/*/*"
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${LambdaRestAPI}/*/*"
 
   ###################################
   # API GATEWAY
   ###################################
-  RestAPI:
+  LambdaRestAPI:
     Type: AWS::ApiGateway::RestApi
     Properties:
-      Name: animal-shelter-api
-      Description: API for Animal Shelter Lambdas
+      Name: animal-shelter-api-lambda
+      Description: API for Animal Shelter Lambdas (Lambda Project)
       EndpointConfiguration:
         Types: [REGIONAL]
 
   AnimalsResource:
     Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestAPI
-      ParentId: !GetAtt RestAPI.RootResourceId
+      RestApiId: !Ref LambdaRestAPI
+      ParentId: !GetAtt LambdaRestAPI.RootResourceId
       PathPart: "animals"
 
   AnimalIdResource:
     Type: AWS::ApiGateway::Resource
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ParentId: !Ref AnimalsResource
       PathPart: "{id}"
 
@@ -234,7 +236,7 @@ Resources:
   GetAllMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalsResource
       HttpMethod: GET
       AuthorizationType: NONE
@@ -251,7 +253,7 @@ Resources:
   GetByIdMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalIdResource
       HttpMethod: GET
       AuthorizationType: NONE
@@ -268,7 +270,7 @@ Resources:
   PostMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalsResource
       HttpMethod: POST
       AuthorizationType: NONE
@@ -285,7 +287,7 @@ Resources:
   PutMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalIdResource
       HttpMethod: PUT
       AuthorizationType: NONE
@@ -302,7 +304,7 @@ Resources:
   DeleteMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalIdResource
       HttpMethod: DELETE
       AuthorizationType: NONE
@@ -322,7 +324,7 @@ Resources:
   OptionsAnimalsMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalsResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
@@ -349,7 +351,7 @@ Resources:
   OptionsAnimalByIdMethod:
     Type: AWS::ApiGateway::Method
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
       ResourceId: !Ref AnimalIdResource
       HttpMethod: OPTIONS
       AuthorizationType: NONE
@@ -376,7 +378,7 @@ Resources:
   ###################################
   # API Deployment / Stage / Key / Usage Plan
   ###################################
-  APIDeployment:
+  LambdaAPIDeployment:
     Type: AWS::ApiGateway::Deployment
     DependsOn:
       - GetAllMethod
@@ -387,43 +389,43 @@ Resources:
       - OptionsAnimalsMethod
       - OptionsAnimalByIdMethod
     Properties:
-      RestApiId: !Ref RestAPI
+      RestApiId: !Ref LambdaRestAPI
 
-  APIStage:
+  LambdaAPIStage:
     Type: AWS::ApiGateway::Stage
     Properties:
-      RestApiId: !Ref RestAPI
-      DeploymentId: !Ref APIDeployment
+      RestApiId: !Ref LambdaRestAPI
+      DeploymentId: !Ref LambdaAPIDeployment
       StageName: prod
 
-  APIKey:
+  LambdaAPIKey:
     Type: AWS::ApiGateway::ApiKey
-    DependsOn: APIStage
+    DependsOn: LambdaAPIStage
     Properties:
-      Name: animal-shelter-api-key
+      Name: animal-shelter-api-key-lambda
       Enabled: true
 
-  UsagePlan:
+  LambdaUsagePlan:
     Type: AWS::ApiGateway::UsagePlan
-    DependsOn: APIStage
+    DependsOn: LambdaAPIStage
     Properties:
-      UsagePlanName: animal-shelter-usage-plan
+      UsagePlanName: animal-shelter-usage-plan-lambda
       ApiStages:
-        - ApiId: !Ref RestAPI
-          Stage: !Ref APIStage
+        - ApiId: !Ref LambdaRestAPI
+          Stage: !Ref LambdaAPIStage
 
-  UsagePlanKey:
+  LambdaUsagePlanKey:
     Type: AWS::ApiGateway::UsagePlanKey
     Properties:
-      KeyId: !Ref APIKey
+      KeyId: !Ref LambdaAPIKey
       KeyType: API_KEY
-      UsagePlanId: !Ref UsagePlan
+      UsagePlanId: !Ref LambdaUsagePlan
 
 Outputs:
   ApiUrl:
-    Value: !Sub "https://${RestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/animals"
-    Description: "Base URL of the Animal Shelter API"
-  
+    Value: !Sub "https://${LambdaRestAPI}.execute-api.${AWS::Region}.amazonaws.com/prod/animals"
+    Description: "Base URL of the Animal Shelter API (Lambda Project)"
+
   ApiKeyId:
-    Value: !Ref APIKey
+    Value: !Ref LambdaAPIKey
     Description: "API Key ID - Get the actual key value from AWS Console > API Gateway > API Keys"

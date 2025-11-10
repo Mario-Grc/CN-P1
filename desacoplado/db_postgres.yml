@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "RDS PostgreSQL for Animal Shelter"
+Description: "RDS PostgreSQL for Animal Shelter - Lambda Project"
 
 Parameters:
   VpcId:
@@ -27,34 +27,40 @@ Parameters:
     Description: Master user password
 
 Resources:
-  DBAccessSG:
+  LambdaDBAccessSG:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for accessing PostgreSQL
+      GroupDescription: Security group for accessing PostgreSQL (Lambda Project)
       VpcId: !Ref VpcId
+      Tags:
+        - Key: Name
+          Value: lambda-db-access-sg
 
-  DBSecurityGroup:
+  LambdaDBSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: Security group for RDS PostgreSQL
+      GroupDescription: Security group for RDS PostgreSQL (Lambda Project)
       VpcId: !Ref VpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 5432
           ToPort: 5432
-          SourceSecurityGroupId: !Ref DBAccessSG
+          SourceSecurityGroupId: !Ref LambdaDBAccessSG
+      Tags:
+        - Key: Name
+          Value: lambda-db-sg
 
-  DBSubnetGroup:
+  LambdaDBSubnetGroup:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
-      DBSubnetGroupName: animal-shelter-db-subnet-group
-      DBSubnetGroupDescription: Subnet group for animal shelter PostgreSQL database
+      DBSubnetGroupName: animal-shelter-db-subnet-group-lambda
+      DBSubnetGroupDescription: Subnet group for animal shelter PostgreSQL database (Lambda Project)
       SubnetIds: !Ref SubnetIds
 
-  PostgresDBInstance:
+  LambdaPostgresDBInstance:
     Type: AWS::RDS::DBInstance
     Properties:
-      DBInstanceIdentifier: animal-shelter-postgres
+      DBInstanceIdentifier: animal-shelter-postgres-lambda
       Engine: postgres
       EngineVersion: "17.6"
       DBInstanceClass: db.t3.micro
@@ -64,20 +70,20 @@ Resources:
       MasterUsername: !Ref DBUser
       MasterUserPassword: !Ref DBPassword
       VPCSecurityGroups:
-        - !Ref DBSecurityGroup
-      DBSubnetGroupName: !Ref DBSubnetGroup
+        - !Ref LambdaDBSecurityGroup
+      DBSubnetGroupName: !Ref LambdaDBSubnetGroup
       PubliclyAccessible: false
       BackupRetentionPeriod: 0
       DeletionProtection: false
 
 Outputs:
   DBEndpoint:
-    Description: PostgreSQL endpoint address
-    Value: !GetAtt PostgresDBInstance.Endpoint.Address
+    Description: PostgreSQL endpoint address (Lambda Project)
+    Value: !GetAtt LambdaPostgresDBInstance.Endpoint.Address
 
   DBPort:
     Description: PostgreSQL port
-    Value: !GetAtt PostgresDBInstance.Endpoint.Port
+    Value: !GetAtt LambdaPostgresDBInstance.Endpoint.Port
 
   DBName:
     Description: Database name
@@ -88,6 +94,7 @@ Outputs:
     Value: !Ref DBUser
 
   DBAccessSGId:
-    Value: !Ref DBAccessSG
+    Description: Security Group ID for Lambda access
+    Value: !Ref LambdaDBAccessSG
     Export:
-      Name: DBAccessSGId
+      Name: LambdaDBAccessSGId
