@@ -57,9 +57,6 @@ La lógica se divide en 5 funciones Lambda independientes, una por operación. E
 3. **Desplegar la infraestructura principal** con `desacoplado/main-lambda.yml`, usando el endpoint de RDS del output de la pila anterior como parámetro `DBHost`.
 4. **Probar la API** con `frontend.html`, Postman, Insomnia o curl, usando la URL y API Key del panel de API Gateway.
 
-> [!WARNING]
-> Todos los recursos se crean en la región configurada en AWS CLI. Asegúrate de usar siempre la misma región en todos los pasos.
-
 ## Testing
 
 Las pruebas se realizaron con **Insomnia**. La colección de peticiones lista para importar se encuentra en el archivo `Insomnia_2025-11-09.yaml` del repositorio; solo hay que actualizar la URL base y la API Key.
